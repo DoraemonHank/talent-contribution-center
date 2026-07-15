@@ -138,8 +138,24 @@ function recommendedQuadrant(person: Person): Quadrant {
   return highContribution ? "穩定戰力" : "角色聚焦";
 }
 
+function formatVerbatimForDisplay(value: string) {
+  return value
+    // UNC paths expose internal infrastructure and are not useful outside the office network.
+    .replace(
+      /\\\\(?:\d{1,3}\.){3}\d{1,3}\\.*?(?=\s+(?:[a-z]\.|[1-9]\.)|$)/gi,
+      "【內部共享資料夾路徑已隱藏】",
+    )
+    // Source responses use very long em-dash runs as visual dividers. Turn them into line breaks.
+    .replace(/\s*—{5,}\s*/g, "\n")
+    .replace(/[ \t]+(?=(?:\d+|[a-z])\.(?:\s|[A-Z\u4e00-\u9fff]))/g, "\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 function VerbatimBullets({ value, empty = "" }: { value: string; empty?: string }) {
-  return <ul className="verbatim-bullets"><li><p>{value || empty}</p></li></ul>;
+  const displayValue = formatVerbatimForDisplay(value || empty);
+  return <ul className="verbatim-bullets"><li><p>{displayValue}</p></li></ul>;
 }
 
 function QuadrantMatrix({
@@ -391,9 +407,20 @@ function PersonDrawer({ person: p, decision, quadrant, onQuadrantChange, onSave,
     <div className="drawer-body">
       <section className="callout system-judgement"><div><span>COMBINED JUDGEMENT</span><h3>系統綜合建議</h3><p className="judgement-intro">系統同時參考主管 C 值／文字評價與同仁自填內容，再產出建議 C 值；若主管資料皆未提供，才先以同仁內容判定並標示待補。</p></div><div className="system-score-flow"><article><span>主管評價</span><strong>{managerC ? `C${managerC}` : "待補"}</strong><small>{p.managerC ? "主管已填" : managerC ? "由主管文字判讀" : "尚無資料"}</small></article><b>＋</b><article><span>同仁內容判定</span><strong>C{p.suggestedC}</strong><small>依自填成果與四軸</small></article><b>→</b><article className="system-result"><span>系統建議</span><strong>C{systemC}</strong><small>綜合兩項輸入</small></article></div><div className="judgement-sources"><section><h4>主管評價依據</h4><VerbatimBullets value={p.managerNote || ""} empty="主管尚未提供文字評價。" /></section><section><h4>同仁自填內容依據</h4><VerbatimBullets value={p.results || ""} empty="同仁尚未提供成果內容。" /></section></div></section>
       <section><div className="drawer-section-title"><span>01</span><div><h3>同仁內容四軸判定</h3><p>此區為系統綜合判斷的其中一項輸入，另會合併主管評價</p></div></div><div className="axis-grid"><MiniAxis label="思考品質" value={p.axes.thinking}/><MiniAxis label="影響他人" value={p.axes.influence}/><MiniAxis label="組織貢獻" value={p.axes.institution}/><MiniAxis label="人才賦能" value={p.axes.multiplier}/></div></section>
-      <section><div className="drawer-section-title"><span>02</span><div><h3>關鍵人才定位</h3><p>先依系統建議判定目前貢獻，再由人工拖拉或選單覆核</p></div></div><div className={`position-card ${quadrantMeta[quadrant].color}`}><div><span>{quadrantMeta[quadrant].en}</span><h3>{quadrant}</h3><p>{quadrantMeta[quadrant].note}</p></div><b>{quadrant === "核心關鍵" ? "優先留任與擴大責任" : quadrant === "成長加速" ? "給任務、資源與明確里程碑" : quadrant === "穩定戰力" ? "深化專業並降低單點依賴" : "先釐清角色與基本期待"}</b></div><label className="quadrant-adjust">人工覆核定位<select value={quadrant} onChange={(event) => onQuadrantChange(event.target.value as Quadrant)}>{(Object.keys(quadrantMeta) as Quadrant[]).map((name) => <option key={name} value={name}>{name}｜{quadrantMeta[name].note}</option>)}</select></label></section>
-      <section className="original-content"><div className="drawer-section-title"><span>03</span><div><h3>全部原始內容（完整保留）</h3><p>每個欄位逐項條列；不摘要、不改寫、不刪除任何已載入文字</p></div></div><div className="original-table-head" aria-hidden="true"><span>原始欄位</span><span>完整內容</span></div><ul className="original-list">{originalFields.map(([label, value]) => <li key={label}><h4>{label}</h4><VerbatimBullets value={value || ""} /></li>)}</ul></section>
-      <section className="decision-panel"><div className="drawer-section-title"><span>05</span><div><h3>老闆決策</h3><p>內容會保存在目前裝置，可匯出決策表</p></div></div><div className="decision-form"><label>最終 C 值<select value={effectiveC} onChange={e => onSave({ c: Number(e.target.value) })}>{[1,2,3,4,5,6,7,8].map(x => <option key={x} value={x}>C{x} · {levelText[x]}</option>)}</select></label><label>人才動作<select value={decision.action || ""} onChange={e => onSave({ action: e.target.value })}><option value="">待決策</option><option>優先升級／加薪</option><option>留任與擴大責任</option><option>加速培養</option><option>維持現職深化</option><option>角色重新對焦</option><option>補充佐證後再議</option></select></label><label className="full">決策備註<textarea value={decision.note || ""} onChange={e => onSave({ note: e.target.value })} placeholder="記錄判斷脈絡、需要補的證據或下一步…" /></label></div><button className="save" onClick={onClose}>完成並返回名單</button></section>
+      <section className="talent-position-section">
+        <div className="drawer-section-title"><span>02</span><div><h3>關鍵人才定位</h3><p>先依系統建議判定目前貢獻，再由人工拖拉或選單覆核</p></div></div>
+        <div className={`position-card ${quadrantMeta[quadrant].color}`}>
+          <div className="position-summary"><span>{quadrantMeta[quadrant].en}</span><h3>{quadrant}</h3><p>{quadrantMeta[quadrant].note}</p></div>
+          <b>{quadrant === "核心關鍵" ? "優先留任與擴大責任" : quadrant === "成長加速" ? "給任務、資源與明確里程碑" : quadrant === "穩定戰力" ? "深化專業並降低單點依賴" : "先釐清角色與基本期待"}</b>
+        </div>
+        <label className="quadrant-adjust">人工覆核定位<select value={quadrant} onChange={(event) => onQuadrantChange(event.target.value as Quadrant)}>{(Object.keys(quadrantMeta) as Quadrant[]).map((name) => <option key={name} value={name}>{name}｜{quadrantMeta[name].note}</option>)}</select></label>
+      </section>
+      <section className="original-content">
+        <div className="drawer-section-title"><span>03</span><div><h3>全部原始內容</h3><p>原始欄位完整呈現；超長分隔線轉為換行，內網路徑基於資訊安全隱藏</p></div></div>
+        <div className="original-table-head" aria-hidden="true"><span>原始欄位</span><span>安全顯示內容</span></div>
+        <ul className="original-list">{originalFields.map(([label, value]) => <li key={label}><h4>{label}</h4><VerbatimBullets value={value || ""} /></li>)}</ul>
+      </section>
+      <section className="decision-panel"><div className="drawer-section-title"><span>04</span><div><h3>老闆決策</h3><p>內容會保存在目前裝置，可匯出決策表</p></div></div><div className="decision-form"><label>最終 C 值<select value={effectiveC} onChange={e => onSave({ c: Number(e.target.value) })}>{[1,2,3,4,5,6,7,8].map(x => <option key={x} value={x}>C{x} · {levelText[x]}</option>)}</select></label><label>人才動作<select value={decision.action || ""} onChange={e => onSave({ action: e.target.value })}><option value="">待決策</option><option>優先升級／加薪</option><option>留任與擴大責任</option><option>加速培養</option><option>維持現職深化</option><option>角色重新對焦</option><option>補充佐證後再議</option></select></label><label className="full">決策備註<textarea value={decision.note || ""} onChange={e => onSave({ note: e.target.value })} placeholder="記錄判斷脈絡、需要補的證據或下一步…" /></label></div><button className="save" onClick={onClose}>完成並返回名單</button></section>
     </div>
   </aside></div>;
 }
