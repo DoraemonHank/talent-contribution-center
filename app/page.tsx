@@ -149,6 +149,11 @@ function recommendedQuadrant(person: Person): Quadrant {
 
 function readableSegments(value: string) {
   return value
+    // Keep internal SMB infrastructure out of the rendered page while preserving source data.
+    .replace(
+      /\\\\(?:\d{1,3}\.){3}\d{1,3}\\.*?(?=\s+(?:[a-z]\.|[1-9][.、．])|$)/gi,
+      "【內部共享資料夾路徑已隱藏】",
+    )
     .replace(/\r\n?/g, "\n")
     .replace(/\s*[—─]{6,}\s*/g, "\n")
     .replace(/([。！？!?])\s*/g, "$1\n")
@@ -433,7 +438,7 @@ function PersonDrawer({ person: p, decision, quadrant, onQuadrantChange, onSave,
         </div>
         <label className="quadrant-adjust">人工覆核定位<select value={quadrant} onChange={(event) => onQuadrantChange(event.target.value as Quadrant)}>{(Object.keys(quadrantMeta) as Quadrant[]).map((name) => <option key={name} value={name}>{name}｜{quadrantMeta[name].note}</option>)}</select></label>
       </section>
-      <section className="original-content"><div className="drawer-section-title"><span>03</span><div><h3>全部原始內容（完整保留）</h3><p>每個欄位逐項顯示；保留全部已載入文字，並依句號、編號與原有段落自動換行</p></div></div><div className="resource-source-note"><b>延伸欄位來源說明</b><p>「決策／資源」取自同仁填寫的「希望得到的支持」；「發展任務」取自「未來希望承接」；「系統發展建議」由四軸判定產生。三者皆已明確標示，不再使用無法辨識來源的「資源／發展內容 01／02／03」。</p></div><div className="original-table-head" aria-hidden="true"><span>欄位與來源</span><span>完整內容</span></div><ul className="original-list">{originalFields.map(([label, value]) => <li key={label}><h4>{label}</h4><VerbatimBullets value={value || ""} /></li>)}</ul></section>
+      <section className="original-content"><div className="drawer-section-title"><span>03</span><div><h3>全部原始內容</h3><p>每個欄位逐項顯示；保留全部已載入文字，內部共享路徑會在畫面上安全遮蔽</p></div></div><div className="resource-source-note"><b>延伸欄位來源說明</b><p>「決策／資源」取自同仁填寫的「希望得到的支持」；「發展任務」取自「未來希望承接」；「系統發展建議」由四軸判定產生。三者皆已明確標示，不再使用無法辨識來源的「資源／發展內容 01／02／03」。</p></div><div className="original-table-head" aria-hidden="true"><span>欄位與來源</span><span>安全顯示內容</span></div><ul className="original-list">{originalFields.map(([label, value]) => <li key={label}><h4>{label}</h4><VerbatimBullets value={value || ""} /></li>)}</ul></section>
       <section className="decision-panel"><div className="drawer-section-title"><span>04</span><div><h3>老闆決策</h3><p>內容會保存在目前裝置，可匯出決策表</p></div></div><div className="decision-form"><label>最終 C 值<select value={effectiveC} onChange={e => onSave({ c: Number(e.target.value) })}>{[1,2,3,4,5,6,7,8].map(x => <option key={x} value={x}>C{x} · {levelText[x]}</option>)}</select></label><label>人才動作<select value={decision.action || ""} onChange={e => onSave({ action: e.target.value })}><option value="">待決策</option><option>優先升級／加薪</option><option>留任與擴大責任</option><option>加速培養</option><option>維持現職深化</option><option>角色重新對焦</option><option>補充佐證後再議</option></select></label><label className="full">決策備註<textarea value={decision.note || ""} onChange={e => onSave({ note: e.target.value })} placeholder="記錄判斷脈絡、需要補的證據或下一步…" /></label></div><button className="save" onClick={onClose}>完成並返回名單</button></section>
     </div>
   </aside></div>;
