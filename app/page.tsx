@@ -127,6 +127,31 @@ function MiniAxis({ guide, value }: { guide: (typeof axisGuides)[number]; value:
   );
 }
 
+function AxisRadar({ values }: { values: number[] }) {
+  const center = 90;
+  const radius = 56;
+  const point = (value: number, index: number) => {
+    const angle = (-90 + index * 90) * Math.PI / 180;
+    const distance = radius * (value / 8);
+    return `${center + Math.cos(angle) * distance},${center + Math.sin(angle) * distance}`;
+  };
+  const grid = (level: number) => values.map((_, index) => point(level, index)).join(" ");
+  const shape = values.map(point).join(" ");
+
+  return <figure className="axis-radar-card" aria-label="四軸能力雷達圖">
+    <svg viewBox="0 0 180 180" role="img">
+      {[2, 4, 6, 8].map((level) => <polygon key={level} points={grid(level)} className="radar-grid" />)}
+      {[0, 1, 2, 3].map((index) => <line key={index} x1={center} y1={center} x2={point(8, index).split(",")[0]} y2={point(8, index).split(",")[1]} className="radar-axis" />)}
+      <polygon points={shape} className="radar-shape" />
+      {values.map((value, index) => {
+        const [cx, cy] = point(value, index).split(",");
+        return <circle key={index} cx={cx} cy={cy} r="3.5" className="radar-point" />;
+      })}
+    </svg>
+    <figcaption>{axisGuides.map((guide, index) => <span key={guide.code}><i>{guide.code}</i><b>{guide.name}</b><strong>C{values[index]}</strong></span>)}</figcaption>
+  </figure>;
+}
+
 function managerInputC(person: Person): number | null {
   if (person.managerC) return person.managerC;
   const values = [...person.managerNote.matchAll(/C([1-8])/gi)].map((match) => Number(match[1])).sort((a, b) => b - a);
@@ -300,6 +325,10 @@ export default function Home() {
   const avgC = basePeople.length ? (basePeople.reduce((s, p) => s + systemSuggestedC(p), 0) / basePeople.length).toFixed(1) : "—";
   const coreCount = basePeople.filter(p => quadrantOf(p) === "核心關鍵").length;
   const pendingCount = basePeople.filter(p => !managerInputC(p)).length;
+  const highCount = basePeople.filter(p => systemSuggestedC(p) >= 5).length;
+  const midCount = basePeople.filter(p => systemSuggestedC(p) >= 3 && systemSuggestedC(p) <= 4).length;
+  const growthCount = basePeople.filter(p => systemSuggestedC(p) <= 2).length;
+  const managerCount = basePeople.filter(p => p.isManager).length;
 
   function exportCSV() {
     const header = ["姓名","大隊","小隊","主管","主管C值","建議C值","決策C值","四象限","決策方向","決策備註"];
@@ -310,50 +339,53 @@ export default function Home() {
   }
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar">
-        <div className="brand"><span className="brand-mark">W</span><div><strong>WitsPer</strong><small>TALENT OS</small></div></div>
-        <nav aria-label="主要導覽">
-          <button className={view === "overview" ? "active" : ""} onClick={() => setView("overview")}><span>◫</span> 決策總覽</button>
-          <button className={view === "groups" ? "active" : ""} onClick={() => setView("groups")}><span>⌘</span> 三大隊對焦</button>
-          <button className={view === "managers" ? "active" : ""} onClick={() => setView("managers")}><span>♙</span> 主管職盤點</button>
-        </nav>
-        <div className="sidebar-label">快速切換</div>
-        <div className="group-nav">
-          {(Object.keys(groupMeta) as (keyof typeof groupMeta)[]).filter(x => x !== "其他").map(code => (
-            <button key={code} className={group === code ? "active" : ""} onClick={() => setGroup(code)}>
-              <i className={`dot ${code.toLowerCase()}`} /> <span>{code === "ALL" ? "全公司" : code}</span><small>{code === "ALL" ? people.length : people.filter(p => p.group === code).length}</small>
-            </button>
-          ))}
+    <main className="app-shell dashboard-shell">
+      <header className="command-header">
+        <div className="command-header-main">
+          <div className="brand"><span className="brand-mark">W</span><div><strong>WitsPer 智選家</strong><small>人才貢獻對焦 · 決策儀表板</small></div></div>
+          <nav className="primary-tabs" aria-label="主要導覽">
+            <button className={view === "overview" ? "active" : ""} onClick={() => setView("overview")}>總體</button>
+            <button className={view === "groups" ? "active" : ""} onClick={() => setView("groups")}>三大隊</button>
+            <button className={view === "managers" ? "active" : ""} onClick={() => setView("managers")}>主管職</button>
+          </nav>
+          <div className="top-actions"><button className="icon-btn" aria-label="方法說明" onClick={() => setShowMethod(true)}>?</button><button className="export-btn" onClick={exportCSV}>匯出決策表 <span>↗</span></button></div>
         </div>
-        <div className="sidebar-note"><b>四大子軸判斷邏輯</b><p>每一軸皆提供 C1～C8 完整定義，供查找、比對與判斷。</p><button onClick={() => setShowMethod(true)}>查看 C1～C8 完整內容 →</button></div>
-      </aside>
+        <div className="scope-strip">
+          <div className="group-tabs" aria-label="大隊篩選">
+            {(Object.keys(groupMeta) as (keyof typeof groupMeta)[]).filter(x => x !== "其他").map(code => (
+              <button key={code} className={group === code ? "active" : ""} onClick={() => setGroup(code)}>
+                <i className={`dot ${code.toLowerCase()}`} /><span>{code === "ALL" ? "全公司" : code}</span><small>{code === "ALL" ? people.length : people.filter(p => p.group === code).length}</small>
+              </button>
+            ))}
+          </div>
+          <div className="header-status"><span>2026 H1</span><b>{basePeople.length} 位</b><i>{pendingCount ? `${pendingCount} 位待補主管判定` : "主管判定已齊備"}</i></div>
+        </div>
+      </header>
 
       <section className="workspace">
-        <header className="topbar">
-          <div><p>2026 H1 · TALENT CALIBRATION</p><h1>人才貢獻決策中心 <span>Decision cockpit</span></h1></div>
-          <div className="top-actions"><button className="icon-btn" aria-label="方法說明" onClick={() => setShowMethod(true)}>?</button><button className="export-btn" onClick={exportCSV}>匯出決策表 <span>↗</span></button><div className="avatar">CEO</div></div>
-        </header>
-
         <div className="content">
           <section className="context-row">
-            <div><span className="eyebrow">CURRENT SCOPE</span><h2>{groupMeta[group].name}</h2><p>Leader · {groupMeta[group].leader}　｜　{view === "managers" ? "主管職視角" : view === "groups" ? "大隊結構視角" : "全體人才視角"}</p></div>
-            <div className="period"><span>盤點期間</span><strong>2026.01.01 — 06.23</strong><i>資料已載入 · 52 份</i></div>
+            <div><span className="eyebrow">CURRENT DECISION SCOPE</span><h2>{groupMeta[group].name}</h2><p>Leader · {groupMeta[group].leader}　／　{view === "managers" ? "主管職視角" : view === "groups" ? "大隊結構視角" : "全體人才視角"}</p></div>
+            <div className="period"><span>盤點期間</span><strong>2026.01.01 — 06.23</strong><i>資料已載入 · {people.length} 份</i></div>
           </section>
 
+          <div className="source-banner"><b>已載入</b><p>人才盤點資料已匯入；系統綜合同仁自填內容與主管評價產出建議 C 值。四象限可人工拖拉覆核，所有決策只儲存在目前瀏覽器。</p></div>
+
           <section className="kpi-grid">
-            <article className="kpi featured"><div><span>盤點人數</span><strong>{basePeople.length}</strong><small>PEOPLE IN SCOPE</small></div><div className="ring" style={{ "--p": `${Math.min(100, basePeople.length / 52 * 100)}%` } as React.CSSProperties}><b>{Math.round(basePeople.length / 52 * 100)}%</b></div></article>
-            <article className="kpi"><span>平均系統建議 C 值</span><strong>{avgC}</strong><small>綜合主管評價與同仁內容</small><div className="spark"><i/><i/><i/><i/><i/><i/></div></article>
-            <article className="kpi"><span>核心關鍵人才</span><strong>{coreCount}</strong><small>{basePeople.length ? Math.round(coreCount / basePeople.length * 100) : 0}% OF SCOPE</small><div className="people-stack"><b>↑</b><i/><i/><i/></div></article>
-            <article className={`kpi ${pendingCount ? "warning" : ""}`}><span>待補 C 值判定</span><strong>{pendingCount}</strong><small>建議優先校準</small><button onClick={() => { setCFilter("ALL"); setQuadrant("ALL"); }}>查看名單 →</button></article>
+            <article className="kpi featured"><div><span>盤點範圍</span><strong>{basePeople.length}</strong><small>PEOPLE IN SCOPE</small></div><div className="ring" style={{ "--p": `${Math.min(100, basePeople.length / people.length * 100)}%` } as React.CSSProperties}><b>{Math.round(basePeople.length / people.length * 100)}%</b></div></article>
+            <article className="kpi metric-cyan"><span>平均建議 C 值</span><strong>{avgC}</strong><small>主管評價 × 同仁內容</small></article>
+            <article className="kpi metric-green"><span>高貢獻 C5–C8</span><strong>{highCount}</strong><small>核心關鍵 {coreCount} 位</small></article>
+            <article className="kpi metric-blue"><span>中階 C3–C4</span><strong>{midCount}</strong><small>穩定貢獻 · 發展下一級</small></article>
+            <article className="kpi metric-amber"><span>成長中 C1–C2</span><strong>{growthCount}</strong><small>明確期待 · 縮短學習曲線</small></article>
+            <article className={`kpi ${pendingCount ? "warning" : ""}`}><span>帶人主管／待補</span><strong>{managerCount}<em>／{pendingCount}</em></strong><small>主管職人數／待補主管判定</small><button onClick={() => { setView("managers"); setCFilter("ALL"); setQuadrant("ALL"); }}>查看主管 →</button></article>
           </section>
+
+          {view !== "managers" && <Organization group={group} onGroup={setGroup} />}
 
           <section className="quadrant-section">
             <div className="section-head"><div><span className="eyebrow">TALENT MATRIX</span><h3>關鍵人才四象限</h3></div><div className="axis-legend"><span><i className="x"/>目前貢獻</span><span><i className="y"/>未來關鍵性</span></div></div>
             <QuadrantMatrix members={basePeople} selectedQuadrant={quadrant} getQuadrant={quadrantOf} onSelect={setQuadrant} onPerson={setSelected} onMove={saveQuadrant} />
           </section>
-
-          {view === "groups" && <Organization group={group} onGroup={setGroup} />}
 
           <section className="talent-section">
             <div className="section-head talent-title"><div><span className="eyebrow">DECISION QUEUE</span><h3>{view === "managers" ? "主管職校準名單" : "人才決策清單"}</h3></div><span className="result-count">{scoped.length} 位符合條件</span></div>
@@ -424,12 +456,12 @@ function PersonDrawer({ person: p, decision, quadrant, onQuadrantChange, onSave,
     ["未來希望承接", p.next],
     ...resourceFields,
   ] as const;
-  return <div className="overlay detail-overlay"><aside className="drawer" aria-modal="true" role="dialog" aria-label={`${p.name} 完整人才刊版`}>
+  return <div className="overlay detail-overlay" onMouseDown={event => event.target === event.currentTarget && onClose()}><aside className="drawer" aria-modal="true" role="dialog" aria-label={`${p.name} 完整人才刊版`}>
     <button className="close" onClick={onClose} aria-label="關閉">×</button>
     <div className="drawer-hero"><div className="drawer-person"><i className={`person-avatar xl ${p.group.toLowerCase()}`}>{initials(p.name)}</i><div><span>{p.group} · {p.team}　／　主管 {p.manager}</span><h2>{p.name}</h2><p>{p.isManager ? "主管職 · " : ""}{p.strengths || "能力資料待補"}</p></div></div><div className="drawer-score"><span>系統建議 C 值</span><strong>C{systemC}</strong><small>{levelText[systemC]}</small></div></div>
     <div className="drawer-body">
       <section className="callout system-judgement"><div><span>COMBINED JUDGEMENT</span><h3>系統綜合建議</h3><p className="judgement-intro">系統同時參考主管 C 值／文字評價與同仁自填內容，再產出建議 C 值；若主管資料皆未提供，才先以同仁內容判定並標示待補。</p></div><div className="system-score-flow"><article><span>主管評價</span><strong>{managerC ? `C${managerC}` : "待補"}</strong><small>{p.managerC ? "主管已填" : managerC ? "由主管文字判讀" : "尚無資料"}</small></article><b>＋</b><article><span>同仁內容判定</span><strong>C{p.suggestedC}</strong><small>依自填成果與四軸</small></article><b>→</b><article className="system-result"><span>系統建議</span><strong>C{systemC}</strong><small>綜合兩項輸入</small></article></div><div className="judgement-sources"><section><h4>主管評價依據</h4><VerbatimBullets value={p.managerNote || ""} empty="主管尚未提供文字評價。" /></section><section><h4>同仁自填內容依據</h4><VerbatimBullets value={p.results || ""} empty="同仁尚未提供成果內容。" /></section></div></section>
-      <section><div className="drawer-section-title"><span>01</span><div><h3>同仁內容四軸判定</h3><p>此區為系統綜合判斷的其中一項輸入；點擊每個子軸即可查看判斷內容、觀察重點與 C1～C8 完整標準</p></div></div><div className="axis-method-summary"><b>系統怎麼判定？</b><p>系統讀取同仁填寫的主要成果、佐證、代表案例、阻礙、希望支持與未來承接內容，將四個子軸分開比對 C1～C8 行為標準；不因單一亮點直接拉高全部子軸。完成四軸評分後，取第二高值作為「同仁內容判定」，再與主管 C 值及主管文字評價合併產出系統建議。</p></div><div className="axis-grid"><MiniAxis guide={axisGuides[0]} value={p.axes.thinking}/><MiniAxis guide={axisGuides[1]} value={p.axes.influence}/><MiniAxis guide={axisGuides[2]} value={p.axes.institution}/><MiniAxis guide={axisGuides[3]} value={p.axes.multiplier}/></div><details className="axis-evidence"><summary>查看本次四軸判定依據</summary><VerbatimBullets value={p.reason || ""} empty="目前沒有可顯示的判定依據。" /></details></section>
+      <section><div className="drawer-section-title"><span>01</span><div><h3>同仁內容四軸判定</h3><p>此區為系統綜合判斷的其中一項輸入；點擊每個子軸即可查看判斷內容、觀察重點與 C1～C8 完整標準</p></div></div><div className="axis-method-summary"><b>系統怎麼判定？</b><p>系統讀取同仁填寫的主要成果、佐證、代表案例、阻礙、希望支持與未來承接內容，將四個子軸分開比對 C1～C8 行為標準；不因單一亮點直接拉高全部子軸。完成四軸評分後，取第二高值作為「同仁內容判定」，再與主管 C 值及主管文字評價合併產出系統建議。</p></div><div className="axis-overview"><AxisRadar values={[p.axes.thinking, p.axes.influence, p.axes.institution, p.axes.multiplier]} /><div className="axis-grid"><MiniAxis guide={axisGuides[0]} value={p.axes.thinking}/><MiniAxis guide={axisGuides[1]} value={p.axes.influence}/><MiniAxis guide={axisGuides[2]} value={p.axes.institution}/><MiniAxis guide={axisGuides[3]} value={p.axes.multiplier}/></div></div><details className="axis-evidence"><summary>查看本次四軸判定依據</summary><VerbatimBullets value={p.reason || ""} empty="目前沒有可顯示的判定依據。" /></details></section>
       <section className="talent-position-section">
         <div className="drawer-section-title"><span>02</span><div><h3>關鍵人才定位</h3><p>先依系統建議判定目前貢獻，再由人工拖拉或選單覆核</p></div></div>
         <div className={`position-card ${quadrantMeta[quadrant].color}`}>
