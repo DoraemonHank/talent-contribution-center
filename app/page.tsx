@@ -109,12 +109,21 @@ function CBadge({ value, ghost = false }: { value: number | null; ghost?: boolea
   return <span className={`c-badge c${value} ${ghost ? "ghost" : ""}`}>C{value}</span>;
 }
 
-function MiniAxis({ label, value }: { label: string; value: number }) {
+function MiniAxis({ guide, value }: { guide: (typeof axisGuides)[number]; value: number }) {
   return (
-    <div className="mini-axis">
-      <span>{label}</span><strong>C{value}</strong>
-      <i><b style={{ width: `${value * 12.5}%` }} /></i>
-    </div>
+    <details className="mini-axis">
+      <summary>
+        <span>{guide.name}</span><strong>C{value}</strong>
+        <i><b style={{ width: `${value * 12.5}%` }} /></i>
+        <em>點擊查看判定說明</em>
+      </summary>
+      <div className="mini-axis-guide">
+        <p><b>目前判定</b><span>C{value}｜{levelText[value]}</span></p>
+        <p><b>判斷內容</b><span>{guide.definition}</span></p>
+        <p><b>觀察重點</b><span>{guide.observe}</span></p>
+        <div><b>C1～C8 完整標準</b><ul>{guide.examples.map((example) => <li key={example}>{example}</li>)}</ul></div>
+      </div>
+    </details>
   );
 }
 
@@ -138,24 +147,23 @@ function recommendedQuadrant(person: Person): Quadrant {
   return highContribution ? "穩定戰力" : "角色聚焦";
 }
 
-function formatVerbatimForDisplay(value: string) {
+function readableSegments(value: string) {
   return value
-    // UNC paths expose internal infrastructure and are not useful outside the office network.
-    .replace(
-      /\\\\(?:\d{1,3}\.){3}\d{1,3}\\.*?(?=\s+(?:[a-z]\.|[1-9]\.)|$)/gi,
-      "【內部共享資料夾路徑已隱藏】",
-    )
-    // Source responses use very long em-dash runs as visual dividers. Turn them into line breaks.
-    .replace(/\s*—{5,}\s*/g, "\n")
-    .replace(/[ \t]+(?=(?:\d+|[a-z])\.(?:\s|[A-Z\u4e00-\u9fff]))/g, "\n")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+    .replace(/\r\n?/g, "\n")
+    .replace(/\s*[—─]{6,}\s*/g, "\n")
+    .replace(/([。！？!?])\s*/g, "$1\n")
+    .replace(/\s+(?=(?:\d+[.、．]|[a-z][.、．])\s*)/gi, "\n")
+    .replace(/\s+(?=(?:子軸[一二三四]|任務|行動|結果|背景|處理|結論|支持理由|期望支持|正向證據|結構化行為描述|待優化卡點|發展與引導建議|具體價值貢獻|協作特質觀察)[：:])/g, "\n")
+    .split(/\n+/)
+    .map((segment) => segment.trim())
+    .filter(Boolean);
 }
 
 function VerbatimBullets({ value, empty = "" }: { value: string; empty?: string }) {
-  const displayValue = formatVerbatimForDisplay(value || empty);
-  return <ul className="verbatim-bullets"><li><p>{displayValue}</p></li></ul>;
+  const source = value || empty;
+  const segments = readableSegments(source);
+  const sourceWasTruncated = /…\s*$/.test(source);
+  return <div className="verbatim-bullets">{segments.map((segment, index) => <p key={`${index}-${segment.slice(0, 18)}`}>{segment}</p>)}{sourceWasTruncated && <div className="source-truncation"><b>來源內容待補</b><span>此欄位在匯入網站前已以「…」結尾；畫面已完整顯示目前載入的文字，但缺少的原文需由原始盤點資料補回。</span></div>}</div>;
 }
 
 function QuadrantMatrix({
@@ -388,6 +396,16 @@ function PersonDrawer({ person: p, decision, quadrant, onQuadrantChange, onSave,
   const managerC = managerInputC(p);
   const systemC = systemSuggestedC(p);
   const effectiveC = decision.c ?? systemC;
+  const resourceFields = p.resources.map((resource, index) => {
+    const label = resource.startsWith("決策／資源：")
+      ? "延伸整理：決策／資源（取自希望得到的支持）"
+      : resource.startsWith("發展任務：")
+        ? "延伸整理：發展任務（取自未來希望承接）"
+        : resource.startsWith("建議：")
+          ? "系統發展建議（依四軸判定產生）"
+          : `其他延伸內容 ${String(index + 1).padStart(2, "0")}`;
+    return [label, resource] as const;
+  });
   const originalFields = [
     ["主管文字說明（原文）", p.managerNote],
     ["原始內容判定理由（保留原文）", p.reason],
@@ -399,14 +417,14 @@ function PersonDrawer({ person: p, decision, quadrant, onQuadrantChange, onSave,
     ["希望得到的支持", p.support],
     ["能力／強項", p.strengths],
     ["未來希望承接", p.next],
-    ...p.resources.map((resource, index) => [`資源／發展內容 ${String(index + 1).padStart(2, "0")}`, resource] as const),
+    ...resourceFields,
   ] as const;
   return <div className="overlay detail-overlay"><aside className="drawer" aria-modal="true" role="dialog" aria-label={`${p.name} 完整人才刊版`}>
     <button className="close" onClick={onClose} aria-label="關閉">×</button>
     <div className="drawer-hero"><div className="drawer-person"><i className={`person-avatar xl ${p.group.toLowerCase()}`}>{initials(p.name)}</i><div><span>{p.group} · {p.team}　／　主管 {p.manager}</span><h2>{p.name}</h2><p>{p.isManager ? "主管職 · " : ""}{p.strengths || "能力資料待補"}</p></div></div><div className="drawer-score"><span>系統建議 C 值</span><strong>C{systemC}</strong><small>{levelText[systemC]}</small></div></div>
     <div className="drawer-body">
       <section className="callout system-judgement"><div><span>COMBINED JUDGEMENT</span><h3>系統綜合建議</h3><p className="judgement-intro">系統同時參考主管 C 值／文字評價與同仁自填內容，再產出建議 C 值；若主管資料皆未提供，才先以同仁內容判定並標示待補。</p></div><div className="system-score-flow"><article><span>主管評價</span><strong>{managerC ? `C${managerC}` : "待補"}</strong><small>{p.managerC ? "主管已填" : managerC ? "由主管文字判讀" : "尚無資料"}</small></article><b>＋</b><article><span>同仁內容判定</span><strong>C{p.suggestedC}</strong><small>依自填成果與四軸</small></article><b>→</b><article className="system-result"><span>系統建議</span><strong>C{systemC}</strong><small>綜合兩項輸入</small></article></div><div className="judgement-sources"><section><h4>主管評價依據</h4><VerbatimBullets value={p.managerNote || ""} empty="主管尚未提供文字評價。" /></section><section><h4>同仁自填內容依據</h4><VerbatimBullets value={p.results || ""} empty="同仁尚未提供成果內容。" /></section></div></section>
-      <section><div className="drawer-section-title"><span>01</span><div><h3>同仁內容四軸判定</h3><p>此區為系統綜合判斷的其中一項輸入，另會合併主管評價</p></div></div><div className="axis-grid"><MiniAxis label="思考品質" value={p.axes.thinking}/><MiniAxis label="影響他人" value={p.axes.influence}/><MiniAxis label="組織貢獻" value={p.axes.institution}/><MiniAxis label="人才賦能" value={p.axes.multiplier}/></div></section>
+      <section><div className="drawer-section-title"><span>01</span><div><h3>同仁內容四軸判定</h3><p>此區為系統綜合判斷的其中一項輸入；點擊每個子軸即可查看判斷內容、觀察重點與 C1～C8 完整標準</p></div></div><div className="axis-method-summary"><b>系統怎麼判定？</b><p>系統讀取同仁填寫的主要成果、佐證、代表案例、阻礙、希望支持與未來承接內容，將四個子軸分開比對 C1～C8 行為標準；不因單一亮點直接拉高全部子軸。完成四軸評分後，取第二高值作為「同仁內容判定」，再與主管 C 值及主管文字評價合併產出系統建議。</p></div><div className="axis-grid"><MiniAxis guide={axisGuides[0]} value={p.axes.thinking}/><MiniAxis guide={axisGuides[1]} value={p.axes.influence}/><MiniAxis guide={axisGuides[2]} value={p.axes.institution}/><MiniAxis guide={axisGuides[3]} value={p.axes.multiplier}/></div><details className="axis-evidence"><summary>查看本次四軸判定依據</summary><VerbatimBullets value={p.reason || ""} empty="目前沒有可顯示的判定依據。" /></details></section>
       <section className="talent-position-section">
         <div className="drawer-section-title"><span>02</span><div><h3>關鍵人才定位</h3><p>先依系統建議判定目前貢獻，再由人工拖拉或選單覆核</p></div></div>
         <div className={`position-card ${quadrantMeta[quadrant].color}`}>
@@ -415,11 +433,7 @@ function PersonDrawer({ person: p, decision, quadrant, onQuadrantChange, onSave,
         </div>
         <label className="quadrant-adjust">人工覆核定位<select value={quadrant} onChange={(event) => onQuadrantChange(event.target.value as Quadrant)}>{(Object.keys(quadrantMeta) as Quadrant[]).map((name) => <option key={name} value={name}>{name}｜{quadrantMeta[name].note}</option>)}</select></label>
       </section>
-      <section className="original-content">
-        <div className="drawer-section-title"><span>03</span><div><h3>全部原始內容</h3><p>原始欄位完整呈現；超長分隔線轉為換行，內網路徑基於資訊安全隱藏</p></div></div>
-        <div className="original-table-head" aria-hidden="true"><span>原始欄位</span><span>安全顯示內容</span></div>
-        <ul className="original-list">{originalFields.map(([label, value]) => <li key={label}><h4>{label}</h4><VerbatimBullets value={value || ""} /></li>)}</ul>
-      </section>
+      <section className="original-content"><div className="drawer-section-title"><span>03</span><div><h3>全部原始內容（完整保留）</h3><p>每個欄位逐項顯示；保留全部已載入文字，並依句號、編號與原有段落自動換行</p></div></div><div className="resource-source-note"><b>延伸欄位來源說明</b><p>「決策／資源」取自同仁填寫的「希望得到的支持」；「發展任務」取自「未來希望承接」；「系統發展建議」由四軸判定產生。三者皆已明確標示，不再使用無法辨識來源的「資源／發展內容 01／02／03」。</p></div><div className="original-table-head" aria-hidden="true"><span>欄位與來源</span><span>完整內容</span></div><ul className="original-list">{originalFields.map(([label, value]) => <li key={label}><h4>{label}</h4><VerbatimBullets value={value || ""} /></li>)}</ul></section>
       <section className="decision-panel"><div className="drawer-section-title"><span>04</span><div><h3>老闆決策</h3><p>內容會保存在目前裝置，可匯出決策表</p></div></div><div className="decision-form"><label>最終 C 值<select value={effectiveC} onChange={e => onSave({ c: Number(e.target.value) })}>{[1,2,3,4,5,6,7,8].map(x => <option key={x} value={x}>C{x} · {levelText[x]}</option>)}</select></label><label>人才動作<select value={decision.action || ""} onChange={e => onSave({ action: e.target.value })}><option value="">待決策</option><option>優先升級／加薪</option><option>留任與擴大責任</option><option>加速培養</option><option>維持現職深化</option><option>角色重新對焦</option><option>補充佐證後再議</option></select></label><label className="full">決策備註<textarea value={decision.note || ""} onChange={e => onSave({ note: e.target.value })} placeholder="記錄判斷脈絡、需要補的證據或下一步…" /></label></div><button className="save" onClick={onClose}>完成並返回名單</button></section>
     </div>
   </aside></div>;

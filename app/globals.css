@@ -59,6 +59,51 @@ body{font-size:16px}.sidebar nav button,.group-nav button{font-size:14px}.sideba
   border-radius:0;
 }
 
+/* Click-to-open axis scoring explanation */
+details.mini-axis{display:block;padding:0;overflow:hidden;background:#f8f9fc;border:1px solid #e4e8f1}
+details.mini-axis summary{list-style:none;display:grid;grid-template-columns:1fr auto;gap:7px 12px;padding:15px 16px;cursor:pointer;align-items:center}
+details.mini-axis summary::-webkit-details-marker{display:none}
+details.mini-axis summary>span,details.mini-axis summary>strong{font-size:14px}
+details.mini-axis summary>strong{color:#4c55c7}
+details.mini-axis summary>i{grid-column:1/3;display:block;height:7px;background:#e7eaf3;border-radius:5px;overflow:hidden}
+details.mini-axis summary>i b{display:block;height:100%;background:linear-gradient(90deg,#21c5db,#6355f5);border-radius:5px}
+details.mini-axis summary>em{grid-column:1/3;font-style:normal;font-size:11px;color:#6975a0}
+details.mini-axis[open]{grid-column:1/3;background:#fff;box-shadow:0 8px 24px rgba(39,55,110,.08)}
+details.mini-axis[open] summary{background:#f3f5ff;border-bottom:1px solid #dfe4f1}
+.mini-axis-guide{padding:16px 18px;display:grid;gap:13px}
+.mini-axis-guide p{margin:0;display:grid;grid-template-columns:95px minmax(0,1fr);gap:12px;font-size:14px;line-height:1.75;color:#525e77}
+.mini-axis-guide p>b,.mini-axis-guide>div>b{color:#303b58}
+.mini-axis-guide ul{margin:9px 0 0;padding-left:21px;display:grid;gap:7px}
+.mini-axis-guide li{font-size:13px;line-height:1.65;color:#59647c}
+.axis-method-summary{margin-bottom:12px;padding:14px 16px;border-left:3px solid #5966e8;background:#f4f6ff;border-radius:0 11px 11px 0}
+.axis-method-summary b{font-size:13px;color:#35469b}
+.axis-method-summary p{margin:5px 0 0;font-size:13px;line-height:1.75;color:#56627a}
+.axis-evidence{margin-top:12px;border:1px solid #dfe4ef;border-radius:11px;background:#fff;overflow:hidden}
+.axis-evidence summary{padding:13px 15px;cursor:pointer;font-size:13px;font-weight:800;color:#3f4f84;background:#f8f9fc}
+.axis-evidence .verbatim-bullets{border-top:1px solid #e4e8f0}
+
+/* Sentence-led verbatim layout: preserve source text while improving breaks. */
+.original-list>li>.verbatim-bullets,.judgement-sources .verbatim-bullets{min-width:0;margin:0;padding:15px 22px;display:grid;gap:10px;align-content:start}
+.verbatim-bullets>p,.original-list .verbatim-bullets>p{margin:0;font-size:16px;line-height:1.85;color:#46526b;white-space:pre-wrap;overflow-wrap:anywhere;word-break:normal;line-break:strict}
+.verbatim-bullets>p+p{padding-top:10px;border-top:1px dashed #e5e8ef}
+.source-truncation{margin-top:5px;padding:11px 13px;border:1px solid #f0c49c;border-radius:10px;background:#fff7ef;display:grid;gap:4px}
+.source-truncation b{font-size:12px;color:#b55a16}
+.source-truncation span{font-size:12px;line-height:1.65;color:#76563e}
+.resource-source-note{margin:0 0 14px;padding:14px 16px;border:1px solid #cbd5ff;border-radius:12px;background:#f4f6ff}
+.resource-source-note b{font-size:13px;color:#344b9b}
+.resource-source-note p{margin:5px 0 0;font-size:13px;line-height:1.7;color:#56627c}
+
+@media(max-width:760px){
+  details.mini-axis[open]{grid-column:auto}
+  details.mini-axis summary{padding:13px 14px}
+  .mini-axis-guide{padding:14px}
+  .mini-axis-guide p{grid-template-columns:1fr;gap:3px;font-size:13px}
+  .axis-method-summary p{font-size:12px}
+  .original-list>li>.verbatim-bullets,.judgement-sources .verbatim-bullets{padding:13px 15px}
+  .verbatim-bullets>p,.original-list .verbatim-bullets>p{font-size:15px;line-height:1.85}
+  .resource-source-note p{font-size:12px}
+}
+
 /* Responsive hardening for long talent records and the full-page detail view. */
 .app-shell,.workspace,.content,.detail-overlay .drawer,.detail-overlay .drawer-body,.detail-overlay .drawer-body>section{min-width:0}
 .detail-overlay .drawer-section-title{align-items:flex-start}
@@ -113,3 +158,4 @@ body{font-size:16px}.sidebar nav button,.group-nav button{font-size:14px}.sideba
   .detail-overlay .drawer-section-title h3{font-size:17px}
   .detail-overlay .drawer-section-title p{font-size:11px}
 }
+
